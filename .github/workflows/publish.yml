@@ -56,6 +56,24 @@ jobs:
         # GitHub 托管的 Node 22 自带 npm 10.x，而 npm stage 命令要 11.15+
         run: npm install -g npm@latest
 
+      - name: 检查 npm 凭据
+        # ENEEDAUTH（而不是 401）几乎都是这个原因：secrets.NPM_TOKEN 没注入成功。
+        # 常见三种：secret 名字拼错/带空格、secret 建在了 Environment 而不是 Repository、
+        # 或者根本没点 Add secret 保存。这里只打印长度不打印内容，便于排查又不泄露。
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "node: $(node -v) | npm: $(npm -v)"
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::secrets.NPM_TOKEN 为空。请到仓库 Settings -> Secrets and variables -> Actions，确认存在名为 NPM_TOKEN 的 Repository secret（全大写、前后无空格）。"
+            exit 1
+          fi
+          echo "NPM_TOKEN 已注入，长度 ${#NODE_AUTH_TOKEN}"
+          echo "--- 仓库根 .npmrc ---"
+          cat .npmrc 2>/dev/null || echo "(无)"
+          echo "--- 用户级 ~/.npmrc（token 已打码）---"
+          sed -E 's/(_authToken=).*/\1***/' ~/.npmrc 2>/dev/null || echo "(无)"
+
       - name: 提交到 npm 暂存区
         # 这里刻意不用 npm publish：npm 已限制 bypass-2FA token 直接发布，
         # publish 会被静默转成 staged，返回值却仍是成功，很容易误判成"已发布"。
