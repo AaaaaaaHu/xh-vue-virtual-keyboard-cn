@@ -8,6 +8,16 @@
 
 ## [Unreleased]
 
+### 新增
+
+- **点击键盘外部收起键盘**：新增 `closeOnClickOutside`（默认 `true`）。输入框（`input` / `textarea` / `contenteditable`）与带 `data-vk-anchor` 的元素不算"外部"；设置面板、调整尺寸状态下点外部只退出该状态、键盘保留，避免想关面板却把整个键盘一起收掉。
+- **是否禁用系统键盘**：`XHKeyboardInput` 新增 `disableSystemKeyboard`（默认 `true`）。默认输入框为 `readonly` + `inputmode="none"` 且拦截粘贴 / 拖放；设为 `false` 后可开原生输入法、用物理键盘直输，原生输入同步回 `v-model`。
+- demo 增加第三个输入框演示 `disable-system-keyboard="false"`，并在组合输入框的小节里说明。
+
+### 修复
+
+- **点空白处关闭键盘后，按钮像"点不动"**：收起动画期间键盘还在原位拦截指针，把这次 `mouseup` / `click` 吞掉；淡出阶段改为 `pointer-events: none`。
+
 ## [0.1.3] - 2026-11-03
 
 ### 新增

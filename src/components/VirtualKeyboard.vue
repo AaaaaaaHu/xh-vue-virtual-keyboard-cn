@@ -95,6 +95,12 @@ const props = withDefaults(
      * 纯数字输入场景（金额 / 数量 / 手机号）应开启，确保只能输入数字。
      */
     lockPanel?: boolean
+    /**
+     * 点击键盘外部区域是否收起键盘，默认 true。
+     * 输入框（input / textarea / contenteditable）和带 data-vk-anchor 的元素不算"外部"。
+     * 设置面板 / 调整尺寸状态下点外部只退出该状态，键盘保留。
+     */
+    closeOnClickOutside?: boolean
   }>(),
   {
     modelValue: '',
@@ -118,7 +124,8 @@ const props = withDefaults(
     persistSettings: false,
     learn: true,
     persistLearn: false,
-    lockPanel: false
+    lockPanel: false,
+    closeOnClickOutside: true
   }
 )
 
@@ -447,6 +454,45 @@ function insert(s: string) {
 /** 收起键盘 */
 function close() {
   innerVisible.value = false
+}
+
+/**
+ * 点键盘外部收起键盘（capture 阶段监听：业务代码 stopPropagation 也拦不住）。
+ *
+ * 三类"不算外部"的情况：
+ * - 键盘自身内部（含 teleport 后的候选栏、设置卡片）
+ * - 输入框 / 可编辑元素：KeyboardInput 的输入框点击要自己决定开关，
+ *   否则会先被这里关掉、再由 click 打开，闪一下
+ * - 带 data-vk-anchor 的元素：给自定义触发器（包裹层、卡片）预留，点它不关
+ *
+ * 设置 / 调整尺寸状态先"退一层"：只退出该状态，键盘留着，
+ * 否则用户想关面板却把整个键盘一起收掉，还得重新点输入框。
+ */
+function onDocPointerDown(e: PointerEvent) {
+  if (!innerVisible.value) return
+  const root = rootEl.value
+  if (!root) return
+  const target = e.target as Node | null
+  if (!target) return
+  if (root.contains(target)) return
+  const el = target.nodeType === 1 ? (target as Element) : target.parentElement
+  if (
+    el &&
+    el.closest(
+      'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [data-vk-anchor]'
+    )
+  ) {
+    return
+  }
+  if (resizeMode.value) {
+    toggleResizeMode()
+    return
+  }
+  if (settingsMode.value) {
+    toggleSettings()
+    return
+  }
+  if (props.closeOnClickOutside) close()
 }
 
 /* ------------------------------------------------------------ 按键分发 */
@@ -988,10 +1034,13 @@ onMounted(() => {
   setLearningPersistence(props.persistLearn)
   loadSettings()
   window.addEventListener('resize', onWindowResize, { passive: true })
+  // capture：业务代码在冒泡阶段 stopPropagation 也不会漏掉这次点击
+  document.addEventListener('pointerdown', onDocPointerDown, true)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', onWindowResize)
+  document.removeEventListener('pointerdown', onDocPointerDown, true)
   window.removeEventListener('pointermove', onDragMove)
   window.removeEventListener('pointerup', onDragEnd)
   window.removeEventListener('pointercancel', onDragEnd)
@@ -2430,6 +2479,12 @@ defineExpose({
 .vk-fade-enter-active,
 .vk-fade-leave-active {
   transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.22s ease;
+}
+
+/* 收起动画期间必须让出点击：否则点空白处关闭键盘时，正在淡出的键盘还盖在那里，
+   会把这次 mouseup/click 拦掉，用户会觉得"按钮点了没反应"。 */
+.vk-fade-leave-active {
+  pointer-events: none;
 }
 
 .vk-fade-enter-from,

@@ -23,6 +23,8 @@ const lastKey = ref('—')
 const confirmed = ref('')
 const amount = ref('')
 const nickname = ref('')
+/** 未禁用系统键盘的输入框：可以用物理键盘 / 原生输入法直接打字 */
+const note = ref('')
 
 const placeholder = computed(() =>
   panel.value === 'digits' ? '点击输入金额' : '点击这里，用虚拟键盘输入'
@@ -150,6 +152,7 @@ function scopedInput() {
       :position="pos"
       :draggable="pos === 'fixed'"
       :max-width="pos === 'fixed' ? '35rem' : '100%'"
+      :close-on-click-outside="false"
       @key="onKey"
       @confirm="onConfirm"
     />
@@ -171,14 +174,15 @@ function scopedInput() {
       <b>设置</b>：点候选栏右侧齿轮 → 整块切换到设置界面。
       可切主题、开关拖动；想改尺寸就打开「调整边框」，键盘保持可见但按键暂时不可点，
       在组件中央拖四周/四角即可拉伸，宽高按屏幕比例限幅，
-      点「完成调整」退出。点空白处可退出设置界面。
+      点「完成调整」退出。点键盘外部空白处可退出设置界面；普通状态下点外部则会收起键盘
+      （本页主键盘为常驻演示所以关掉了这个行为，下面的输入框示例可以体验）。
       切到「吸底可拖」后，还能按住候选栏拖动位置、双击复位；
       可拖动时键盘是<b>悬浮面板</b>外观（四角全圆 + 四周环向阴影，按下拖动时阴影加深）。
     </p>
 
     <section class="card card--gap">
       <label class="card__label">
-        多个输入框（互斥 · 可拖动 · 金额框锁定为纯数字键盘，没有切换键）
+        多个输入框（互斥 · 可拖动 · 金额框锁定为纯数字键盘；第三个<code>disable-system-keyboard="false"</code>，允许系统/物理键盘）
       </label>
       <XHKeyboardInput
         v-model="nickname"
@@ -197,9 +201,17 @@ function scopedInput() {
         persist-learn
         style="margin-top: 0.625rem"
       />
+      <XHKeyboardInput
+        v-model="note"
+        placeholder="允许系统键盘：这里可以开原生输入法、用物理键盘直接打"
+        :disable-system-keyboard="false"
+        :max-length="40"
+        style="margin-top: 0.625rem"
+      />
       <div class="meta">
         <span>昵称：{{ nickname || '（空）' }}</span>
         <span>金额：{{ amount || '（空）' }}</span>
+        <span>系统键盘输入：{{ note || '（空）' }}</span>
       </div>
     </section>
 

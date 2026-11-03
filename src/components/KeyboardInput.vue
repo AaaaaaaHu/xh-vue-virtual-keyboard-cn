@@ -30,6 +30,15 @@ const props = withDefaults(
     zIndex?: number
     /** 键盘挂载容器，默认 'body'，可传选择器或元素（容器不要带 overflow: hidden） */
     appendTo?: string | HTMLElement
+    /** 点击输入框以外的区域是否收起键盘，默认 true */
+    closeOnClickOutside?: boolean
+    /**
+     * 是否禁用系统键盘（手机软键盘 / 物理键盘直接输入），默认 true。
+     * true：输入框设为 readonly + inputmode="none"，点它只弹虚拟键盘，系统键盘不弹，
+     *      粘贴 / 拖放也一并拦掉，避免绕过 maxLength 与词库。
+     * false：输入框可正常编辑，系统键盘与虚拟键盘共存，原生输入会同步回 v-model。
+     */
+    disableSystemKeyboard?: boolean
     /** 输入框额外样式类 */
     fieldClass?: string
     /** 是否开启联想词 */
@@ -62,6 +71,8 @@ const props = withDefaults(
     maxWidth: '35rem',
     zIndex: 999999,
     appendTo: 'body',
+    closeOnClickOutside: true,
+    disableSystemKeyboard: true,
     fieldClass: '',
     associations: true,
     exclusive: true,
@@ -118,6 +129,26 @@ watch(displayValue, async () => {
   const el = inputRef.value
   if (el) el.scrollLeft = el.scrollWidth
 })
+
+/**
+ * 允许系统键盘时（disableSystemKeyboard=false），把原生输入同步回 v-model。
+ * 输入框显示的是「已上屏 + 正在输入的拼音」，回写前要把拼音尾巴去掉，
+ * 否则原生输入一次，拼音就被当成上屏文本又保留了一份。
+ */
+function onNativeInput(e: Event) {
+  if (props.disableSystemKeyboard) return
+  const el = e.target as HTMLInputElement
+  let v = el.value
+  if (composing.value && v.endsWith(composing.value)) {
+    v = v.slice(0, v.length - composing.value.length)
+  }
+  inner.value = props.maxLength > 0 ? Array.from(v).slice(0, props.maxLength).join('') : v
+}
+
+/** 禁用系统键盘时连粘贴 / 拖放一起拦掉，否则能绕过 maxLength 与词库 */
+function blockIf(e: Event) {
+  if (props.disableSystemKeyboard) e.preventDefault()
+}
 
 async function open() {
   visible.value = true
@@ -193,17 +224,21 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="vk-input">
+  <div class="vk-input" data-vk-anchor>
     <input
       ref="inputRef"
       class="vk-input__field"
       :class="[fieldClass, { 'is-active': visible, 'is-composing': composing }]"
       :value="displayValue"
       :placeholder="placeholder"
-      readonly
-      inputmode="none"
+      :readonly="disableSystemKeyboard"
+      :inputmode="disableSystemKeyboard ? 'none' : 'text'"
       autocomplete="off"
       @click="open"
+      @input="onNativeInput"
+      @compositionend="onNativeInput"
+      @paste="blockIf"
+      @drop="blockIf"
     />
     <VirtualKeyboard
       v-model="inner"
@@ -216,6 +251,7 @@ onBeforeUnmount(() => {
       :max-width="maxWidth"
       :z-index="zIndex"
       :append-to="appendTo"
+      :close-on-click-outside="closeOnClickOutside"
       :associations="associations"
       :exclusive="exclusive"
       :draggable="draggable"

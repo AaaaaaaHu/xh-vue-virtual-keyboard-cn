@@ -84,6 +84,7 @@ const amount = ref('')
 | `learn`            | `boolean` | `true`   | 学习用户选过的词                                            |
 | `persistLearn`     | `boolean` | `false`  | 学习数据持久化到 localStorage                               |
 | `allowPanelSwitch` | `boolean` | `false`  | 允许数字键盘切换到其它面板。默认 `false`：`panel="digits"` 时锁死为纯数字键盘 |
+| `disableSystemKeyboard` | `boolean` | `true` | 是否禁用系统键盘（软键盘 / 物理键盘直输），`false` 时原生输入会同步回 `v-model`      |
 
 ### 会自动把输入框让到键盘上方
 
@@ -164,6 +165,7 @@ app.use(VueVirtualKeyboard, {
 | `teleport`        | `boolean`                                         | `true`      | fixed 定位时挂载到 `body`，避免祖先 `transform`/`filter` 让 `position: fixed` 失效 |
 | `zIndex`          | `number`                                          | `999999`    | 键盘层级，被页面浮层压住时调大                                   |
 | `appendTo`        | `string \| HTMLElement`                           | `'body'`    | fixed 定位时的挂载容器，用于把键盘挂进层级更高的浮层容器                    |
+| `closeOnClickOutside` | `boolean`                                     | `true`      | 点击键盘外部收起键盘；输入框与 `data-vk-anchor` 元素不算外部                            |
 
 ## XHVirtualKeyboard 事件
 
@@ -726,7 +728,16 @@ import 'xh-vue-virtual-keyboard-cn/style.css'
 
 **4. 移动端点击时同时弹出系统输入法**
   
-输入框需设置 `readonly` + `inputmode="none"`，`XHKeyboardInput` 已内置处理。
+`XHKeyboardInput` 默认 `disable-system-keyboard="true"`：输入框带 `readonly` + `inputmode="none"`，
+同时拦掉粘贴与拖放，只弹虚拟键盘。
+
+确实需要让用户用原生输入法 / 物理键盘打字时（例如桌面端后台录入），关掉即可，原生输入会同步回 `v-model`：
+
+```vue
+<XHKeyboardInput v-model="note" :disable-system-keyboard="false" />
+```
+
+用裸的 `XHVirtualKeyboard` 自己搭输入框时，需要自己加 `readonly` + `inputmode="none"`。
 
 **5. 页面底部内容被键盘遮挡**
   
