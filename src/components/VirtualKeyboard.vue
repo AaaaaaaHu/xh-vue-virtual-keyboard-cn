@@ -840,6 +840,15 @@ const canDrag = computed(
   () => innerDraggable.value && props.position === 'fixed' && !settingsMode.value
 )
 
+/**
+ * 「浮起」视觉：fixed + 开启拖动时，键盘不再是贴底的横条，
+ * 而是像一块悬浮面板 —— 四角全圆角、四周环向阴影（样式见 .vk-root--floating）。
+ *
+ * 这里刻意不排除 settingsMode：否则进入设置 / 调整边框那一瞬间 canDrag 变 false，
+ * 圆角与阴影会先消失再出现，视觉上闪一下。
+ */
+const isFloating = computed(() => innerDraggable.value && props.position === 'fixed')
+
 function onDragStart(e: PointerEvent) {
   if (!canDrag.value) return
   const el = rootEl.value
@@ -1022,6 +1031,7 @@ defineExpose({
           `vk-theme-${innerTheme}`,
           position === 'fixed' ? 'vk-root--fixed' : 'vk-root--inline',
           {
+            'vk-root--floating': isFloating,
             'vk-root--dragging': dragging,
             'vk-root--settings': settingsMode,
             'vk-root--resize': resizeMode,
@@ -1379,6 +1389,11 @@ defineExpose({
   --vk-font-size: 1em;
   --vk-shadow: 0 -0.12em 1.1em rgba(16, 24, 40, 0.12);
 
+  /* 可拖动（浮起）态：键盘四角全圆 + 四周环向阴影，见 .vk-root--floating */
+  --vk-root-radius: 0.85em;
+  --vk-shadow-raised: 0 0.1em 2.4em rgba(16, 24, 40, 0.3);
+  --vk-shadow-dragging: 0 0.15em 3.2em rgba(16, 24, 40, 0.42);
+
   box-sizing: border-box;
   width: 100%;
   /* 窄屏约 14px，桌面约 17px；--vk-scale 由设置面板的拉伸功能控制 */
@@ -1403,14 +1418,34 @@ defineExpose({
   right: 0;
   bottom: 0;
   margin: 0 auto;
-  border-radius: 0.85em 0.85em 0 0;
+  border-radius: var(--vk-root-radius) var(--vk-root-radius) 0 0;
   box-shadow: var(--vk-shadow);
   padding-bottom: env(safe-area-inset-bottom, 0);
-  transition: box-shadow 0.15s ease;
+  transition: box-shadow 0.15s ease, border-radius 0.15s ease;
+}
+
+/* 可拖动时键盘浮在页面上：四角全圆 + 四周环向阴影。
+   吸底态只圆上两角、阴影朝上（下方看不到），拖起来后要四面都有影才像悬浮面板。 */
+.vk-root--fixed.vk-root--floating {
+  border-radius: var(--vk-root-radius);
+  box-shadow: var(--vk-shadow-raised);
+  /* 键区、候选栏、设置蒙版等子元素统一被裁成圆角；
+     展开的候选面板弹在键盘上方外部（bottom: 100%），由下面的规则放开 */
+  overflow: hidden;
+}
+
+/* 候选展开面板在键盘上方外部，overflow hidden 会把它整个裁掉 */
+.vk-root--fixed.vk-root--floating.vk-root--expanded {
+  overflow: visible;
+}
+
+/* 展开时 overflow 放开后，候选栏要自己圆角，否则它的底色会盖住键盘左上 / 右上角 */
+.vk-root--fixed.vk-root--floating > .vk-bar {
+  border-radius: var(--vk-root-radius) var(--vk-root-radius) 0 0;
 }
 
 .vk-root--fixed.vk-root--dragging {
-  box-shadow: 0 0.2em 1.6em rgba(16, 24, 40, 0.28);
+  box-shadow: var(--vk-shadow-dragging);
   transition: none;
 }
 
@@ -1432,6 +1467,9 @@ defineExpose({
   --vk-bar-color: #f2f4f7;
   --vk-bar-muted: #6b7280;
   --vk-shadow: 0 -0.12em 1.1em rgba(0, 0, 0, 0.45);
+  /* 深色背景下阴影要更重才看得出浮起层次 */
+  --vk-shadow-raised: 0 0.1em 2.4em rgba(0, 0, 0, 0.58);
+  --vk-shadow-dragging: 0 0.15em 3.2em rgba(0, 0, 0, 0.72);
 
   /* 设置面板专用：深色下要提亮，否则文字糊在一起 */
   --vk-set-surface: #32353d;
