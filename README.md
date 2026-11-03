@@ -160,7 +160,8 @@ app.use(VueVirtualKeyboard, {
 | `lockPanel`       | `boolean`                                         | `false`     | 锁定当前面板：隐藏所有切换键，用户无法切到别的面板                                            |
 | `exclusive`       | `boolean`                                         | `true`      | 与页面内其它键盘互斥，同一时间只显示一个                                                 |
 | `teleport`        | `boolean`                                         | `true`      | fixed 定位时挂载到 `body`，避免祖先 `transform`/`filter` 让 `position: fixed` 失效 |
-| `zIndex`          | `number`                                          | `9999`      | 层级                                                                   |
+| `zIndex`          | `number`                                          | `999999`    | 键盘层级，被页面浮层压住时调大                                   |
+| `appendTo`        | `string \| HTMLElement`                           | `'body'`    | fixed 定位时的挂载容器，用于把键盘挂进层级更高的浮层容器                    |
 
 ## XHVirtualKeyboard 事件
 
@@ -401,6 +402,7 @@ font-size: clamp(0.875rem, 0.55rem + 1.5vw, 1.0625rem);
 | `--vk-set-soft` / `--vk-set-soft-hover` | 分段控件、次要按钮底色 / 悬停色                               |
 | `--vk-set-divider`                      | 设置项之间的分隔线颜色                                     |
 | `--vk-set-accent-soft`                  | 尺寸标签、图标徽标的淡主色底（需与 `--vk-key-accent-bg` 一起换成品牌色） |
+| `--vk-z-index`                          | 键盘层级，默认取 `zIndex` 属性（`999999`）                  |
 
 > 设置面板的 `--vk-set-*` 变量在浅色 / 深色主题下各有一套默认值，一般不用改。
 >   
@@ -678,6 +680,29 @@ CI 依次执行：校验 tag 与 `package.json` 版本一致 → `npm ci` → `n
 **1. 点字母键没反应 / 键盘跑到页面中间或看不见**
   
 几乎都是祖先元素带 `transform` / `filter` / `perspective` / `will-change`，导致 `position: fixed` 不再相对视口定位。组件默认 `teleport: true` 已规避；如果是旧版本或手动设了 `teleport: false`，请改回来。
+
+**1.1 键盘被页面里的弹窗 / 浮层盖住，点了像"打不开"**
+
+组件默认层级 `999999`，一般够用。如果页面里还有更高的浮层，任选一种解决：
+
+```vue
+<!-- ① 调 props -->
+<XHKeyboardInput v-model="text" :z-index="10000000" />
+```
+
+```css
+/* ② 业务 CSS 里覆盖变量，不用改模板（键盘 teleport 到 body，写在 :root 上最稳） */
+:root {
+  --vk-z-index: 10000000;
+}
+```
+
+```vue
+<!-- ③ 挂进自己的浮层容器，层级跟随该容器 -->
+<XHKeyboardInput v-model="text" append-to=".my-dialog" />
+```
+
+注意挂载容器不要带 `overflow: hidden`，否则键盘会被裁掉；选择器解析不到时自动退回 `body`。
 
 **2. 键盘完全没样式（一堆文字按钮）**
   

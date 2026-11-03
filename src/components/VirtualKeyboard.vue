@@ -60,8 +60,18 @@ const props = withDefaults(
      * position: fixed 失效（键盘跑到错误位置、点了没反应）。
      */
     teleport?: boolean
-    /** 层级，默认 9999 */
+    /**
+     * 层级，默认 999999。
+     * 页面上存在更高层的浮层（弹窗 / 抽屉 / 自己写的 fixed 底栏）把键盘压住时，
+     * 调大这个值；也可以在业务 CSS 里覆盖 --vk-z-index，无需改 props。
+     */
     zIndex?: number
+    /**
+     * fixed 定位时的挂载容器，默认 'body'，可传选择器或元素。
+     * 页面里存在层级更高的浮层容器时，把键盘挂进去即可跟随该容器的层级，
+     * 注意容器不要带 overflow: hidden，否则键盘会被裁掉。
+     */
+    appendTo?: string | HTMLElement
     /**
      * 是否与页面内其它键盘互斥（同一时间只显示一个）。
      * 默认 true：新键盘打开时会自动收起上一个。
@@ -100,7 +110,8 @@ const props = withDefaults(
     enterText: '完成',
     maxWidth: '35rem',
     teleport: true,
-    zIndex: 9999,
+    zIndex: 999999,
+    appendTo: 'body',
     exclusive: true,
     draggable: false,
     showSettings: true,
@@ -1002,7 +1013,8 @@ const dragTransform = computed(() => {
 const rootStyle = computed(() => {
   const style: Record<string, string | undefined> = {
     maxWidth: props.maxWidth,
-    zIndex: String(props.zIndex),
+    // 用 var 包一层：业务方不改 props，在任意祖先上覆盖 --vk-z-index 就能调层级
+    zIndex: `var(--vk-z-index, ${props.zIndex})`,
     transform: dragTransform.value,
     '--vk-scale': String(scale.value)
   }
@@ -1031,6 +1043,25 @@ const canTeleport = computed(
   () => props.teleport && props.position === 'fixed' && typeof document !== 'undefined'
 )
 
+/**
+ * 挂载目标：默认 body，业务方可以挂进自己的浮层容器。
+ * 选择器解析不到（弹窗还没渲染出来、拼错）时退回 body —— 否则 Teleport 会直接抛错，
+ * 表现为整个键盘渲染失败、点输入框毫无反应。
+ */
+const teleportTarget = computed<string | HTMLElement>(() => {
+  // 依赖 visible：每次打开重新解析，弹窗后挂载也能命中
+  void innerVisible.value
+  const t = props.appendTo
+  if (!t) return 'body'
+  if (typeof t !== 'string') return t
+  if (typeof document === 'undefined') return 'body'
+  try {
+    return document.querySelector(t) ? t : 'body'
+  } catch {
+    return 'body'
+  }
+})
+
 defineExpose({
   insert,
   backspace,
@@ -1043,7 +1074,7 @@ defineExpose({
 </script>
 
 <template>
-  <Teleport to="body" :disabled="!canTeleport">
+  <Teleport :to="teleportTarget" :disabled="!canTeleport">
     <Transition name="vk-fade">
       <div
         v-if="innerVisible"

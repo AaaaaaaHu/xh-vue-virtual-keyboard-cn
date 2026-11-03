@@ -22,6 +22,14 @@ const props = withDefaults(
     panel?: PanelName
     /** 键盘最大宽度 */
     maxWidth?: string
+    /**
+     * 键盘层级，默认 999999。
+     * 被页面里的浮层（弹窗 / 抽屉 / 自己的 fixed 底栏）压住时调大；
+     * 也可以在业务 CSS 里覆盖 --vk-z-index，不用改这里。
+     */
+    zIndex?: number
+    /** 键盘挂载容器，默认 'body'，可传选择器或元素（容器不要带 overflow: hidden） */
+    appendTo?: string | HTMLElement
     /** 输入框额外样式类 */
     fieldClass?: string
     /** 是否开启联想词 */
@@ -52,6 +60,8 @@ const props = withDefaults(
     lang: 'zh',
     panel: 'letters',
     maxWidth: '35rem',
+    zIndex: 999999,
+    appendTo: 'body',
     fieldClass: '',
     associations: true,
     exclusive: true,
@@ -204,6 +214,8 @@ onBeforeUnmount(() => {
       :theme="theme"
       :max-length="maxLength"
       :max-width="maxWidth"
+      :z-index="zIndex"
+      :append-to="appendTo"
       :associations="associations"
       :exclusive="exclusive"
       :draggable="draggable"
