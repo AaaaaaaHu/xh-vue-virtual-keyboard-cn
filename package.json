@@ -1,6 +1,6 @@
 {
   "name": "xh-vue-virtual-keyboard-cn",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Vue 3 虚拟键盘组件：内置拼音中文输入法，支持中文 / 英文 / 数字 / 符号，开箱即用",
   "type": "module",
   "main": "./dist/xh-vue-virtual-keyboard-cn.umd.cjs",
