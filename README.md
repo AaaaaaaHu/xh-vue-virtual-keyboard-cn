@@ -18,6 +18,8 @@ Vue 3 虚拟键盘组件，**内置拼音中文输入法**，无需依赖系统�
 - 支持 `v-model` 双向绑定、`fixed` 吸底 / `inline` 内嵌、浅色 / 深色主题
 - 所有样式基于 CSS 变量，可整体换肤
 
+> 各版本变更见 [CHANGELOG.md](./CHANGELOG.md)，也可以在 [Releases](https://github.com/AaaaaaaHu/xh-vue-virtual-keyboard-cn/releases) 页按版本查看。
+
 ## 安装
 
 ```bash
