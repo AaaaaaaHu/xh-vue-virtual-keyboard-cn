@@ -292,6 +292,8 @@ function pushLetter(letter: string) {
 }
 
 function choose(c: Candidate) {
+  // 调整尺寸 / 设置期间禁止选词上屏
+  if (inputLocked.value) return
   commitText(c.text)
   if (props.learn) recordSelection(c.text)
   pinyin.value = getRemainingPinyin(pinyin.value, c)
@@ -370,6 +372,7 @@ function chooseExpanded(c: Candidate) {
 
 /** 点击联想词：直接补到文本后面，并继续产出下一轮联想 */
 function chooseAssoc(word: string) {
+  if (inputLocked.value) return
   commitText(word)
   if (props.learn) recordSelection(word)
   emit('key', { key: 'assoc', text: word })
@@ -425,8 +428,8 @@ function close() {
 /* ------------------------------------------------------------ 按键分发 */
 function handleKey(key: KeyDef) {
   if (key.disabled) return
-  // 调整边框 / 设置态下键盘只作为背景可见，不接受输入，避免误触
-  if (settingsMode.value) return
+  // 调整尺寸 / 设置态下键盘只作为背景可见，不接受输入，避免误触
+  if (inputLocked.value) return
   const code = key.code
 
   if (code.startsWith('char:')) {
@@ -565,6 +568,13 @@ type ResizeDir = (typeof RESIZE_DIRS)[number]
 
 /** 边框可调（设置模式 + 调整边框开关同时打开） */
 const canResize = computed(() => settingsMode.value && resizeMode.value)
+
+/**
+ * 输入是否被锁住：设置 / 调整尺寸期间键盘只作为预览，
+ * 点按键、点候选、点联想都不能上屏 —— 否则拖边框时手一滑就打出字来。
+ * 逻辑层统一收口在这里，样式层再用 pointer-events 让键区连按压反馈都不给。
+ */
+const inputLocked = computed(() => settingsMode.value || resizeMode.value)
 
 const cardEl = ref<HTMLElement | null>(null)
 
@@ -2102,8 +2112,9 @@ defineExpose({
 }
 
 /* ---------------------------------------------------------- 调整边框层 */
-/* 键盘保持可见，只压一层轻遮罩 + 一个轻量操作条
-   外层容器 pointer-events:none，只有按钮本身接收点击，避免挡住键盘 */
+/* 键盘保持可见，只压一层轻遮罩 + 一个轻量操作条。
+   遮罩本身接收点击（pointer-events: auto）：调整尺寸期间键区只是预览，
+   点按键 / 候选 / 联想都不该有反应，也不该出现按压反馈。 */
 .vk-rz-layer {
   position: absolute;
   inset: 0;
@@ -2116,7 +2127,16 @@ defineExpose({
   padding: 0.7em;
   /* 遮罩与「键盘设置」蒙版共用同一变量，改一处即可同步 */
   background: var(--vk-mask);
+  pointer-events: auto;
+  cursor: default;
+}
+
+/* 兜底：即使遮罩被改动或面板 z-index 更高，键区与候选栏也一律不接收指针 */
+.vk-root--resize .vk-body,
+.vk-root--resize .vk-bar,
+.vk-root--resize .vk-cand-panel {
   pointer-events: none;
+  user-select: none;
 }
 
 /* 按钮组：浮层中唯一的操作块，只有它接收点击 */
