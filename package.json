@@ -52,6 +52,14 @@
     "中文输入",
     "拼音输入法"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AaaaaaaHu/xh-vue-virtual-keyboard-cn.git"
+  },
+  "homepage": "https://github.com/AaaaaaaHu/xh-vue-virtual-keyboard-cn#readme",
+  "bugs": {
+    "url": "https://github.com/AaaaaaaHu/xh-vue-virtual-keyboard-cn/issues"
+  },
   "author": "root <2237951639@qq.com>",
   "license": "MIT",
   "peerDependencies": {

@@ -596,6 +596,47 @@ python -m venv .venv
 改完跑 `npm run gen:dict` 重新生成 `src/core/dict.generated.ts`
 （Windows 上如果 `npm run gen:dict` 报 `.venv` 找不到，直接用 `.venv/Scripts/python scripts/gen_dict.py`）。
 
+## 发版流程
+
+仓库已配置 GitHub Actions（`.github/workflows/publish.yml`），打 tag 即自动构建并提交到 npm 暂存区。
+
+### 一次性配置
+
+1. npmjs.com → **Access Tokens** → Generate New Token → **Granular Access Token**
+   - Permissions 选 `Read and write`
+   - 首次发布前包还不存在，Packages 只能选 `All packages`；上线后可收窄到该包
+   - 不需要勾 Bypass 2FA（暂存阶段不校验 2FA，批准时才需要）
+2. 存到仓库 `Settings → Secrets and variables → Actions → New repository secret`
+   - Name 必须是 `NPM_TOKEN`（全大写、前后无空格）
+   - 必须填在 **Repository secrets** 分区，`Environment secrets` 不会被读取
+
+### 每次发版
+
+```bash
+npm version patch              # 或 minor / major，会自动创建 commit 与 tag
+git push && git push --tags    # tag 匹配 v* 触发 workflow
+```
+
+CI 依次执行：校验 tag 与 `package.json` 版本一致 → `npm ci` → `npm run build`
+→ 升级 npm 至 12.x → `npm stage publish`。
+
+### 最后一步：人工批准
+
+`npm stage publish` 只把版本放进暂存队列，**不会立即公开**（npm 要求发布时有「人在场」的 2FA 验证）：
+
+- 打开 `https://www.npmjs.com/package/xh-vue-virtual-keyboard-cn` → **Staged Packages** → **Approve** → 输 2FA 验证码
+- 也可本地执行 `npm stage approve <stage-id>`（需 npm 11.15+）
+
+批准后 `dist-tags.latest` 才指向新版本；想放弃这次提交用 **Reject**。
+
+### 注意点
+
+- `npm stage publish` **不会触发** `prepublishOnly`，所以 CI 里保留了显式的 `npm run build`
+  （`dist/` 被 `.gitignore` 忽略，必须现构建）
+- 本机 npm 10.x 没有 `stage` 子命令，需 `npm i -g npm@12`，或用 `npx npm@12 stage ...` 临时调用
+- 版本号一旦发布不可覆盖，改了代码必须 `npm version patch` 才能再发
+- registry 上的 `0.0.0-stage` 是包名占位版本，不要删除
+
 ## 说明与限制
 
 - 目前只做全拼输入，未支持双拼、九宫格、手写、语音。
