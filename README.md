@@ -648,12 +648,19 @@ python -m venv .venv
 ### 每次发版
 
 ```bash
+# 1. 在 CHANGELOG.md 写变更：可以新建 `## [x.y.z] - YYYY-MM-DD` 段落，
+#    也可以先写在 `## [Unreleased]` 下（脚本会自动取用并在 Release 里标注）
+# 2. 升版本
 npm version patch              # 或 minor / major，会自动创建 commit 与 tag
+# 3. 推送
 git push && git push --tags    # tag 匹配 v* 触发 workflow
 ```
 
 CI 依次执行：校验 tag 与 `package.json` 版本一致 → `npm ci` → `npm run build`
-→ 升级 npm 至 12.x → `npm stage publish`。
+→ 升级 npm 至 12.x → `npm stage publish` → **用 CHANGELOG 对应段落自动创建 / 更新 GitHub Release**。
+
+版本说明的取用规则（`scripts/release-notes.cjs`）：优先取 `## [x.y.z]` 段落，
+没有就取 `## [Unreleased]` 并在正文标注，都没有才退回一句指向 CHANGELOG 的兜底文案。
 
 ### 最后一步：人工批准
 

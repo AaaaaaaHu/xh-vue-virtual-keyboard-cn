@@ -23,15 +23,24 @@ const REPO = 'https://github.com/AaaaaaaHu/xh-vue-virtual-keyboard-cn'
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 let body = ''
+let fromUnreleased = false
 try {
   const lines = fs.readFileSync(FILE, 'utf8').split(/\r?\n/)
-  // 标题格式固定为 `## [x.y.z] - YYYY-MM-DD`，也容忍不带方括号的写法
-  const header = new RegExp(`^##\\s*\\[?v?${esc(version)}\\]?(\\s|$)`)
-  const start = lines.findIndex((l) => header.test(l))
-  if (start >= 0) {
+  const section = (label) => {
+    const header = new RegExp(`^##\\s*\\[${esc(label)}\\](\\s|$)`)
+    const start = lines.findIndex((l) => header.test(l))
+    if (start < 0) return ''
     const rest = lines.slice(start + 1)
     const end = rest.findIndex((l) => /^##\s/.test(l))
-    body = (end === -1 ? rest : rest.slice(0, end)).join('\n').trim()
+    return (end === -1 ? rest : rest.slice(0, end)).join('\n').trim()
+  }
+
+  body = section(version)
+  // 发版时常常还写在 [Unreleased] 下面没改标题，直接取用它，
+  // 免得 Release 正文变成一句干巴巴的兜底说明
+  if (!body) {
+    body = section('Unreleased')
+    if (body) fromUnreleased = true
   }
 } catch (e) {
   console.error(`读取 CHANGELOG.md 失败：${e.message}`)
@@ -41,6 +50,15 @@ if (!body) {
   // 没写 changelog 也不能让发版流程挂，给个能点的兜底
   console.error(`::warning::CHANGELOG.md 里没有 ${version} 的段落，使用兜底说明`)
   body = `该版本的变更见 [CHANGELOG.md](${REPO}/blob/main/CHANGELOG.md)。`
+}
+
+if (fromUnreleased) {
+  console.error(
+    `::warning::CHANGELOG.md 里还没有 [${version}] 段落，Release 正文取自 [Unreleased]`
+  )
+  process.stdout.write(
+    `> 说明：变更写在 CHANGELOG 的 \`[Unreleased]\` 下，发版后可把它改成 \`[${version}]\`。\n\n`
+  )
 }
 
 process.stdout.write(`${body}\n\n---\n\n`)

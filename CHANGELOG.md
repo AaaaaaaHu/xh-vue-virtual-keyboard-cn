@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-03
+
 ### 新增
 
 - **点击键盘外部收起键盘**：新增 `closeOnClickOutside`（默认 `true`）。输入框（`input` / `textarea` / `contenteditable`）与带 `data-vk-anchor` 的元素不算"外部"；设置面板、调整尺寸状态下点外部只退出该状态、键盘保留，避免想关面板却把整个键盘一起收掉。
