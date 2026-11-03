@@ -150,6 +150,87 @@ function firstOfSeg(seg: Segment): string {
   return CHAR_DICT[seg.key]?.[0] ?? ''
 }
 
+/** 把整串拼音切成音节（只认音节，不认词组）；切不开返回 null */
+function splitSyllables(s: string): string[] | null {
+  const n = s.length
+  const dp: (string[] | null)[] = new Array(n + 1).fill(null)
+  dp[n] = []
+  for (let i = n - 1; i >= 0; i--) {
+    for (let len = Math.min(MAX_SYLLABLE_LEN, n - i); len >= 1; len--) {
+      const key = s.slice(i, i + len)
+      const tail = dp[i + len]
+      if (tail && SYLLABLE_SET.has(key)) {
+        dp[i] = [key, ...tail]
+        break
+      }
+    }
+  }
+  return dp[0]
+}
+
+/** 混合输入（首音节全拼 + 后续首字母）每个键最多给几个词 */
+const MAX_HYBRID_WORDS = 12
+/** 混合输入时，「第一个字」的单字候选最多给几个 */
+const MAX_HEAD_CHARS = 20
+
+interface HybridBucket {
+  /** 该词组的首字母缩写，用来借简拼表的排序结果 */
+  initials: string
+  words: string[]
+}
+
+let _hybrid: Map<string, HybridBucket> | null = null
+/**
+ * 混合输入索引：「首音节打全 + 后续音节只打首字母」-> 候选词。
+ *
+ * 例：lianx -> 联想(lian+xiang) / 联系(lian+xi) / 脸型(lian+xing) / 连续(lian+xu)
+ *
+ * 这是比整串全拼更常用的打法，但词库里的键只有全拼（lianxiang）和纯首字母（lx），
+ * 所以这里从 WORD_DICT 的键反推音节、拼出混合键。
+ * 排序借用 ABBR_DICT[首字母]（已按常用度排好），保证「联想」这类高频词排前面。
+ */
+function hybridDict(): Map<string, HybridBucket> {
+  if (_hybrid) return _hybrid
+  const map = new Map<string, HybridBucket>()
+  for (const [pyKey, words] of Object.entries(WORD_DICT)) {
+    const syls = splitSyllables(pyKey)
+    if (!syls || syls.length < 2) continue
+    const initials = syls.map((s) => s[0]).join('')
+    const key = syls[0] + initials.slice(1)
+    let bucket = map.get(key)
+    if (!bucket) {
+      bucket = { initials, words: [] }
+      map.set(key, bucket)
+    }
+    for (const w of words) {
+      if (!bucket.words.includes(w)) bucket.words.push(w)
+    }
+  }
+  // 借简拼表的顺序排名，再把不在简拼表里的词按原顺序排在后面
+  for (const bucket of map.values()) {
+    const order = ABBR_DICT[bucket.initials] ?? []
+    const rank = new Map<string, number>()
+    for (let i = 0; i < order.length; i++) rank.set(order[i], i)
+    bucket.words.sort((a, b) => (rank.get(a) ?? 999) - (rank.get(b) ?? 999))
+    bucket.words = bucket.words.slice(0, MAX_HYBRID_WORDS)
+  }
+  _hybrid = map
+  return map
+}
+
+/**
+ * 取输入串的「第一个音节」：最长的、能构成完整音节的合法前缀，且后面还有剩余。
+ * lianx -> lian，lianxr -> lian，lian -> ''（整串就是音节，不需要拆）
+ */
+function headSyllable(input: string): string {
+  for (let len = Math.min(MAX_SYLLABLE_LEN, input.length - 1); len >= 1; len--) {
+    const head = input.slice(0, len)
+    if (SYLLABLE_SET.has(head) && /^[a-z]+$/.test(input.slice(len))) return head
+  }
+  return ''
+}
+
+
 /**
  * 根据拼音串计算候选列表。
  *
@@ -188,6 +269,25 @@ export function getCandidates(input: string): Candidate[] {
     for (const c of chars) push(c, 'char', input.length)
   }
 
+  // 2.5) 混合输入：首音节打全 + 后续音节只打首字母，如 lianx -> 联想 / 联系 / 脸型
+  const hybrid = hybridDict().get(input)
+  if (hybrid) {
+    for (const w of hybrid.words) push(w, 'word', input.length)
+  }
+
+  // 2.6) 同一串输入再补上「第一个字」的单字候选：
+  //      打 lianx 时首段 lian 已是完整音节，顺手给出 脸 / 连 / 练 …
+  //      consume 只算首音节，选中后剩下的 x 留在缓冲区继续打
+  const headSyl = headSyllable(input)
+  if (hybrid && headSyl) {
+    let n = 0
+    for (const c of CHAR_DICT[headSyl] ?? '') {
+      if (n >= MAX_HEAD_CHARS) break
+      n++
+      push(c, 'char', headSyl.length)
+    }
+  }
+
   // 3) 简拼：首字母缩写，如 bj -> 北京 / 比较，zg -> 中国
   //    单字母时只补少量高频词（排在步骤 0 的联想字后面），多字母简拼仍是完整词候选。
   const abbrWords = ABBR_DICT[input]
@@ -199,7 +299,9 @@ export function getCandidates(input: string): Candidate[] {
   }
 
   // 4) 切分成多段：给出"首段候选 + 后续最佳组合"
-  const segs = segmentPinyin(input)
+  //    混合输入已命中时跳过：那时尾部是个首字母（lianx 的 x），
+  //    按"完整音节"去补会拼出「连西」这种没意义的组合，反而盖住真正的词。
+  const segs = hybrid ? null : segmentPinyin(input)
   if (segs && segs.length > 1) {
     const head = segs[0]
     const rest = segs

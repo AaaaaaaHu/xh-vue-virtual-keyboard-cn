@@ -302,7 +302,15 @@ function choose(c: Candidate) {
 
 /* ------------------------------------------------------------ 候选栏横滑 */
 const candsEl = ref<HTMLElement | null>(null)
+/**
+ * 真正"拖起来了"才置 true。
+ * 注意不能在 pointerdown 时就置 true：`is-dragging` 会让候选 pointer-events: none，
+ * mouseup 就落到容器上，click 目标变成祖先节点，候选按钮的 @click 永远不触发
+ * （表现就是"鼠标点候选没反应"，只在候选溢出、进入可拖状态时出现）。
+ */
 const candsDragging = ref(false)
+/** 按下但还没移动：只用来挂监听，不影响指针事件 */
+let candsPressing = false
 /** 刚拖完的一次点击要忽略，否则会误选候选 */
 let candsDragEndAt = 0
 let candsStart = { x: 0, left: 0, moved: false }
@@ -313,18 +321,22 @@ function onCandsDown(e: PointerEvent) {
   const el = candsEl.value
   if (!el || el.scrollWidth <= el.clientWidth + 2) return
   candsStart = { x: e.clientX, left: el.scrollLeft, moved: false }
-  candsDragging.value = true
+  candsPressing = true
   window.addEventListener('pointermove', onCandsMove, { passive: false })
   window.addEventListener('pointerup', onCandsUp)
   window.addEventListener('pointercancel', onCandsUp)
 }
 
 function onCandsMove(e: PointerEvent) {
-  if (!candsDragging.value) return
+  if (!candsPressing) return
   const el = candsEl.value
   if (!el) return
   const dx = e.clientX - candsStart.x
-  if (Math.abs(dx) > 4) candsStart.moved = true
+  if (!candsStart.moved && Math.abs(dx) > 4) {
+    candsStart.moved = true
+    // 超过阈值才算拖动：这时才屏蔽候选的指针事件
+    candsDragging.value = true
+  }
   if (candsStart.moved) {
     e.preventDefault()
     el.scrollLeft = candsStart.left - dx
@@ -332,6 +344,7 @@ function onCandsMove(e: PointerEvent) {
 }
 
 function onCandsUp() {
+  candsPressing = false
   candsDragging.value = false
   if (candsStart.moved) candsDragEndAt = Date.now()
   window.removeEventListener('pointermove', onCandsMove)
