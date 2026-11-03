@@ -1,11 +1,17 @@
 name: 发布到 npm
 
 # 用法：
-#   1. 在 npmjs.com -> Access Tokens 生成一个 Automation Token（或 Granular Access Token，
-#      权限 Publish，且勾选绕过 2FA），存到仓库 Settings -> Secrets -> NPM_TOKEN
+#   1. 在 npmjs.com -> Access Tokens -> Generate New Token -> Granular Access Token
+#      （Classic / Automation token 已于 2025 年 11 月下架，现在只有 Granular）：
+#      Permissions 选 Read and write，勾选 Bypass 2FA，Expiration 设 90 天；
+#      首次发布前包还不存在，Packages 选 All packages，发出去后再收窄到单个包。
+#      生成后存到仓库 Settings -> Secrets and variables -> Actions -> NPM_TOKEN
 #   2. 改完代码后 npm version patch / minor / major，然后把 commit 和 tag 一起推上来：
 #        git push && git push --tags
 #   3. 也可以在 Actions 页面手动 "Run workflow"（workflow_dispatch）发布当前版本
+#   4. ⚠️ 工作流只负责把版本提交到 npm 暂存区，发布不会立即生效：
+#      需要维护者到 npmjs.com -> 包页面 -> Staged Packages 里用 2FA 点 Approve，
+#      版本才真正上架（npm 已限制 bypass-2FA token 直接发布，CI 无法绕过这一步）
 on:
   push:
     tags:
@@ -34,17 +40,27 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # npm stage 相关命令需要 Node 22.14+ / npm CLI 11.15+
+          node-version: 22
           registry-url: https://registry.npmjs.org
           cache: npm
 
       - name: 安装依赖
         run: npm ci
 
-      - name: 发布
-        # prepublishOnly 会自动跑 npm run build（vue-tsc 类型检查 + vite build）。
-        # dist/ 被 .gitignore 忽略，CI 上正是靠这个钩子重新产出构建产物，无需单独再 build 一次。
-        # publishConfig.registry 已指向官方 npm，不会被国内镜像影响。
-        run: npm publish
+      # dist/ 被 .gitignore 忽略，CI 上必须先构建出产物
+      - name: 构建
+        run: npm run build
+
+      - name: 升级 npm
+        # GitHub 托管的 Node 22 自带 npm 10.x，而 npm stage 命令要 11.15+
+        run: npm install -g npm@latest
+
+      - name: 提交到 npm 暂存区
+        # 这里刻意不用 npm publish：npm 已限制 bypass-2FA token 直接发布，
+        # publish 会被静默转成 staged，返回值却仍是成功，很容易误判成"已发布"。
+        # 显式用 stage publish 语义清楚，失败也能看见。
+        # 跑完后需要维护者到 npmjs.com -> Staged Packages 用 2FA 点 Approve 才真正上架。
+        run: npm stage publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
