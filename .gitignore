@@ -1,0 +1,13 @@
+node_modules
+dist
+.venv
+.workbuddy
+*.local
+.DS_Store
+.vscode
+*.log
+dist-demo
+# 无头 Chrome 调试用的临时 profile 目录（.chr / .chr2 / .chrQ ...）
+.chr*
+.tmp-*.png
+*.tgz

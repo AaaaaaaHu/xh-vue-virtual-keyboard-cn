@@ -1,0 +1,50 @@
+name: 发布到 npm
+
+# 用法：
+#   1. 在 npmjs.com -> Access Tokens 生成一个 Automation Token（或 Granular Access Token，
+#      权限 Publish，且勾选绕过 2FA），存到仓库 Settings -> Secrets -> NPM_TOKEN
+#   2. 改完代码后 npm version patch / minor / major，然后把 commit 和 tag 一起推上来：
+#        git push && git push --tags
+#   3. 也可以在 Actions 页面手动 "Run workflow"（workflow_dispatch）发布当前版本
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 防止打错 tag 导致发布了与 package.json 不一致的版本
+      - name: 校验 tag 与 package.json 版本一致
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::tag 版本 $TAG 与 package.json 的 $PKG 不一致，先跑 npm version patch"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 发布
+        # prepublishOnly 会自动跑 npm run build（vue-tsc 类型检查 + vite build）。
+        # dist/ 被 .gitignore 忽略，CI 上正是靠这个钩子重新产出构建产物，无需单独再 build 一次。
+        # publishConfig.registry 已指向官方 npm，不会被国内镜像影响。
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

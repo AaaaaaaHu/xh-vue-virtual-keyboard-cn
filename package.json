@@ -1,0 +1,69 @@
+{
+  "name": "xh-vue-virtual-keyboard-cn",
+  "version": "0.1.0",
+  "description": "Vue 3 虚拟键盘组件：内置拼音中文输入法，支持中文 / 英文 / 数字 / 符号，开箱即用",
+  "type": "module",
+  "main": "./dist/xh-vue-virtual-keyboard-cn.umd.cjs",
+  "module": "./dist/xh-vue-virtual-keyboard-cn.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/xh-vue-virtual-keyboard-cn.js",
+      "require": "./dist/xh-vue-virtual-keyboard-cn.umd.cjs"
+    },
+    "./style.css": "./dist/xh-vue-virtual-keyboard-cn.css",
+    "./dist/style.css": "./dist/xh-vue-virtual-keyboard-cn.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "scripts",
+    "README.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit -p tsconfig.build.json && vite build",
+    "build:only": "vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.build.json",
+    "gen:dict": ".venv/Scripts/python.exe scripts/gen_dict.py",
+    "build:demo": "vite build --config vite.demo.config.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "vue3",
+    "vue",
+    "virtual-keyboard",
+    "keyboard",
+    "pinyin",
+    "chinese-input",
+    "ime",
+    "touch-keyboard",
+    "虚拟键盘",
+    "中文输入",
+    "拼音输入法"
+  ],
+  "author": "root <2237951639@qq.com>",
+  "license": "MIT",
+  "peerDependencies": {
+    "vue": "^3.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/tsconfig": "^0.7.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.11",
+    "vite-plugin-dts": "^5.1.2",
+    "vue": "^3.5.13",
+    "vue-tsc": "^2.2.0"
+  }
+}
