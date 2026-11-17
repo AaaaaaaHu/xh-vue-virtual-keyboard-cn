@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import VirtualKeyboard from './VirtualKeyboard.vue'
 
-type PanelName = 'letters' | 'numbers' | 'symbols' | 'digits'
+type PanelName = 'letters' | 'numbers' | 'symbols' | 'digits' | 'hex'
 
 defineOptions({ name: 'xH-KeyboardInput' })
 
@@ -39,6 +39,12 @@ const props = withDefaults(
      * false：输入框可正常编辑，系统键盘与虚拟键盘共存，原生输入会同步回 v-model。
      */
     disableSystemKeyboard?: boolean
+    /**
+     * UUID 快捷输入，默认 false。
+     * 开启后强制十六进制键盘（0-9 a-f 一屏点完），只收合法字符，
+     * 按 8-4-4-4-12 自动补 `-`，最长 36 位。设备序列号 / 案卷号这类长编号用它。
+     */
+    uuidMode?: boolean
     /** 输入框额外样式类 */
     fieldClass?: string
     /** 是否开启联想词 */
@@ -73,6 +79,7 @@ const props = withDefaults(
     appendTo: 'body',
     closeOnClickOutside: true,
     disableSystemKeyboard: true,
+    uuidMode: false,
     fieldClass: '',
     associations: true,
     exclusive: true,
@@ -252,6 +259,7 @@ onBeforeUnmount(() => {
       :z-index="zIndex"
       :append-to="appendTo"
       :close-on-click-outside="closeOnClickOutside"
+      :uuid-mode="uuidMode"
       :associations="associations"
       :exclusive="exclusive"
       :draggable="draggable"

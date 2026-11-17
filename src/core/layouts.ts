@@ -14,9 +14,9 @@ export interface KeyDef {
   disabled?: boolean
 }
 
-/** 一个键盘面板（字母页 / 数字页 / 符号页） */
+/** 一个键盘面板（字母页 / 数字页 / 符号页 / 十六进制页） */
 export interface KeyboardPanel {
-  name: 'letters' | 'numbers' | 'symbols' | 'digits'
+  name: 'letters' | 'numbers' | 'symbols' | 'digits' | 'hex'
   /** 是否使用三列的大按键布局（数字键盘） */
   compactGrid?: boolean
   rows: KeyDef[][]
@@ -144,9 +144,48 @@ export const DIGITS_PANEL_LOCKED: KeyboardPanel = {
   ]
 }
 
+/**
+ * 十六进制键盘：UUID / 设备编号 / 颜色值等场景。
+ * 16 个字符一屏排完，不用在字母页和数字页之间来回切；
+ * 4×4 大键比全键盘好点，误触少。不含面板切换键（uuidMode 下不应离开）。
+ */
+const HEX_ROWS: KeyDef[][] = [
+  ['0', '1', '2', '3'].map((c) => ({ ...ch(c), flex: 2.5 })),
+  ['4', '5', '6', '7'].map((c) => ({ ...ch(c), flex: 2.5 })),
+  ['8', '9', 'a', 'b'].map((c) => ({ ...ch(c), flex: 2.5 })),
+  ['c', 'd', 'e', 'f'].map((c) => ({ ...ch(c), flex: 2.5 }))
+]
+
+export const HEX_PANEL: KeyboardPanel = {
+  name: 'hex',
+  rows: [
+    ...HEX_ROWS,
+    [
+      { code: 'Backspace', label: '⌫', flex: 2, variant: 'fn' },
+      { code: 'Clear', label: '清空', flex: 2, variant: 'fn' },
+      { code: 'toLetters', label: 'ABC', flex: 2, variant: 'fn' },
+      { code: 'Enter', label: '完成', flex: 4, variant: 'accent' }
+    ]
+  ]
+}
+
+/** UUID 模式专用：去掉返回键，避免用户录编号时误切到字母页 */
+export const HEX_PANEL_LOCKED: KeyboardPanel = {
+  name: 'hex',
+  rows: [
+    ...HEX_ROWS,
+    [
+      { code: 'Backspace', label: '⌫', flex: 3, variant: 'fn' },
+      { code: 'Clear', label: '清空', flex: 2, variant: 'fn' },
+      { code: 'Enter', label: '完成', flex: 5, variant: 'accent' }
+    ]
+  ]
+}
+
 export const PANELS: Record<string, KeyboardPanel> = {
   letters: LETTERS_PANEL,
   numbers: NUMBERS_PANEL,
   symbols: SYMBOLS_PANEL,
-  digits: DIGITS_PANEL
+  digits: DIGITS_PANEL,
+  hex: HEX_PANEL
 }

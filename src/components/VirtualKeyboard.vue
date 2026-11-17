@@ -14,9 +14,15 @@ import {
   setLearningPersistence,
   sortByLearning
 } from '../core/learning'
-import { DIGITS_PANEL_LOCKED, PANELS, type KeyDef, type KeyboardPanel } from '../core/layouts'
+import {
+  DIGITS_PANEL_LOCKED,
+  HEX_PANEL_LOCKED,
+  PANELS,
+  type KeyDef,
+  type KeyboardPanel
+} from '../core/layouts'
 
-type PanelName = 'letters' | 'numbers' | 'symbols' | 'digits'
+type PanelName = 'letters' | 'numbers' | 'symbols' | 'digits' | 'hex'
 type LangName = 'zh' | 'en'
 
 defineOptions({ name: 'xH-VirtualKeyboard', inheritAttrs: false })
@@ -101,6 +107,13 @@ const props = withDefaults(
      * 设置面板 / 调整尺寸状态下点外部只退出该状态，键盘保留。
      */
     closeOnClickOutside?: boolean
+    /**
+     * UUID 快捷输入模式，默认 false。
+     * 开启后：强制十六进制键盘（0-9 a-f，一屏点完、无需切换面板），
+     * 只接受合法字符，按 8-4-4-4-12 自动补 `-`，最长 36 位，
+     * 退格遇到自动补的 `-` 会连前一位一起删掉。适合设备序列号 / 案卷号这类长编号录入。
+     */
+    uuidMode?: boolean
   }>(),
   {
     modelValue: '',
@@ -125,7 +138,8 @@ const props = withDefaults(
     learn: true,
     persistLearn: false,
     lockPanel: false,
-    closeOnClickOutside: true
+    closeOnClickOutside: true,
+    uuidMode: false
   }
 )
 
@@ -160,6 +174,8 @@ const currentLang = ref<LangName>(props.lang)
 const shift = ref(false)
 
 const panelDef = computed<KeyboardPanel>(() => {
+  // UUID 模式只有十六进制面板：没有切换键，也就没有"切走再切回来"的误操作
+  if (props.uuidMode) return HEX_PANEL_LOCKED
   const name = currentPanel.value
   // 锁定面板时用不带切换键的版本，保证用户无法切走
   if (props.lockPanel && name === 'digits') return DIGITS_PANEL_LOCKED
@@ -171,6 +187,8 @@ const isZh = computed(() => currentLang.value === 'zh')
 /** 联想词：只有在没有正在输入的拼音时才展示 */
 const assocList = computed(() => {
   if (!props.associations) return []
+  // UUID 不是自然语言，联想词只会占地方
+  if (props.uuidMode) return []
   if (pinyin.value) return []
   if (!text.value) return []
   const list = getAssociations(text.value, props.maxAssociations)
@@ -187,6 +205,8 @@ const composeHint = computed(() => {
       return '更多符号'
     case 'digits':
       return '数字键盘'
+    case 'hex':
+      return '十六进制 · 自动分段'
     default:
       return isZh.value ? '拼音输入' : 'English'
   }
@@ -263,6 +283,39 @@ onUnmounted(() => releaseExclusive(exclusiveHandle))
 /* ------------------------------------------------------------ 内部方法 */
 function toChars(s: string): string[] {
   return Array.from(s)
+}
+
+/* ------------------------------------------------------------ UUID 快捷输入 */
+const UUID_HEX_LEN = 32
+const UUID_HEX_RE = /^[0-9a-f]$/i
+/** 分组边界 8-4-4-4-12：在这些位数前面插入连字符 */
+const UUID_DASH_AT = [8, 12, 16, 20]
+
+/**
+ * 按 8-4-4-4-12 重排连字符。
+ * 必须每次从纯 hex 重建（而不是"到第 8 位才补一个"）：
+ * 否则用户输到第 9 位时，前面已经补好的 `-` 会被清掉。
+ */
+function formatUuid(hex: string) {
+  let out = ''
+  for (let i = 0; i < hex.length; i++) {
+    if (UUID_DASH_AT.includes(i)) out += '-'
+    out += hex[i]
+  }
+  // 正好停在段末时把分隔符补上，让用户看得出该换段了
+  if (hex.length < UUID_HEX_LEN && UUID_DASH_AT.includes(hex.length)) out += '-'
+  return out
+}
+
+/**
+ * 追加一个十六进制字符并自动补 `-`。
+ * 用户只管一路点 0-9 / a-f，分隔符不用自己按，也不会漏。
+ */
+function pushUuidChar(chr: string) {
+  if (!UUID_HEX_RE.test(chr)) return
+  const hex = text.value.replace(/-/g, '').toLowerCase()
+  if (hex.length >= UUID_HEX_LEN) return
+  text.value = formatUuid(hex + chr.toLowerCase())
 }
 
 function commitText(s: string) {
@@ -414,6 +467,12 @@ function backspace() {
     refreshCandidates()
     return
   }
+  // UUID 模式：末尾是自动补的 `-` 时连它和前一位一起删。
+  // 只删 `-` 的话会被立刻补回来，退格看上去像没反应。
+  if (props.uuidMode && text.value.endsWith('-')) {
+    text.value = text.value.slice(0, -2)
+    return
+  }
   const arr = toChars(text.value)
   if (arr.length) {
     arr.pop()
@@ -502,6 +561,12 @@ function handleKey(key: KeyDef) {
 
   if (code.startsWith('char:')) {
     const raw = key.label
+    // UUID 模式：不做拼音、不管 Shift，只认 0-9a-f 并自动补分隔符
+    if (props.uuidMode) {
+      pushUuidChar(raw)
+      emit('key', { key: code, text: raw })
+      return
+    }
     const shifted = key.shiftLabel ?? raw
     const isAsciiLetter = /^[a-z]$/.test(raw)
     const useUpper = shift.value
@@ -1181,7 +1246,7 @@ defineExpose({
                 {{ c.text }}
               </button>
               <span v-if="!candidates.length" class="vk-cands__empty">
-                继续输入…
+                {{ uuidMode ? '点 0-9 / a-f，自动分段' : '继续输入…' }}
               </span>
             </template>
             <template v-else-if="assocList.length">

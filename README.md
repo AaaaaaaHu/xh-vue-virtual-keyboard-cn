@@ -85,6 +85,7 @@ const amount = ref('')
 | `persistLearn`     | `boolean` | `false`  | 学习数据持久化到 localStorage                               |
 | `allowPanelSwitch` | `boolean` | `false`  | 允许数字键盘切换到其它面板。默认 `false`：`panel="digits"` 时锁死为纯数字键盘 |
 | `disableSystemKeyboard` | `boolean` | `true` | 是否禁用系统键盘（软键盘 / 物理键盘直输），`false` 时原生输入会同步回 `v-model`      |
+| `uuidMode`         | `boolean` | `false`  | UUID 快捷输入：十六进制面板 + 自动补 `-`，见[UUID 快捷输入](#uuid-快捷输入)        |
 
 ### 会自动把输入框让到键盘上方
 
@@ -166,6 +167,7 @@ app.use(VueVirtualKeyboard, {
 | `zIndex`          | `number`                                          | `999999`    | 键盘层级，被页面浮层压住时调大                                   |
 | `appendTo`        | `string \| HTMLElement`                           | `'body'`    | fixed 定位时的挂载容器，用于把键盘挂进层级更高的浮层容器                    |
 | `closeOnClickOutside` | `boolean`                                     | `true`      | 点击键盘外部收起键盘；输入框与 `data-vk-anchor` 元素不算外部                            |
+| `uuidMode`        | `boolean`                                         | `false`     | UUID 快捷输入：固定十六进制面板、自动补 `-`、只收 `0-9a-f`                             |
 
 ## XHVirtualKeyboard 事件
 
@@ -243,6 +245,31 @@ letters  ──123──▶  numbers  ──#+=──▶  symbols
 ```
 
 `lock-panel` 对任意面板都生效——传了就隐藏该面板的所有切换键，并用 `switchPanel` 双重拦截。
+
+## UUID 快捷输入
+
+设备序列号、案卷编号这类 36 位长编号，在触屏上一位位打非常痛苦。打开 `uuid-mode`：
+
+```vue
+<XHKeyboardInput v-model="uuid" uuid-mode placeholder="输入设备编号" />
+```
+
+| 行为 | 说明 |
+| --- | --- |
+| 十六进制面板 | 只显示 `0-9` `a-f` + `⌫` `清空` `完成`，16 个字符一屏点完，不用在字母页和数字页之间来回切 |
+| 自动分段 | 按 `8-4-4-4-12` 自动补 `-`，输入到第 8 位就出现第一个连字符，用户不用自己按 |
+| 只收合法字符 | 面板上没有别的键，拼音和大小写都不介入，输不出非法内容 |
+| 退格友好 | 末尾是自动补的 `-` 时连前一位一起删，不会出现"删了又被补回来"的假死 |
+
+最长 36 位（32 位十六进制 + 4 个连字符），满了之后再点不追加。示例输出：
+
+```
+01234567-89ab-cdef-0000-000000000000
+```
+
+裸组件对应 `:uuid-mode="true"`。开启后 `panel` / `lock-panel` 不再起作用——面板被固定为十六进制。
+
+只想要十六进制键盘、不需要自动分段时，用 `panel="hex"` 即可（这个面板带 `ABC` 返回键，不会进去出不来）。
 
 ## 拖动位置
 
