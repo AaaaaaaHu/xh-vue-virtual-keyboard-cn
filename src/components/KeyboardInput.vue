@@ -45,6 +45,12 @@ const props = withDefaults(
      * 按 8-4-4-4-12 自动补 `-`，最长 36 位。设备序列号 / 案卷号这类长编号用它。
      */
     uuidMode?: boolean
+    /**
+     * 自定义分组长度（1~5），每 N 个字符补一个 `-`：
+     * 1 → `1-2-3-4`，2 → `12-34-56`，3 → `123-456-789`。
+     * 不传或 0 时用标准 UUID 的 8-4-4-4-12。
+     */
+    uuidGroup?: number
     /** 输入框额外样式类 */
     fieldClass?: string
     /** 是否开启联想词 */
@@ -80,6 +86,7 @@ const props = withDefaults(
     closeOnClickOutside: true,
     disableSystemKeyboard: true,
     uuidMode: false,
+    uuidGroup: 0,
     fieldClass: '',
     associations: true,
     exclusive: true,
@@ -221,7 +228,14 @@ function ensureFieldVisible() {
 }
 
 watch(visible, (v) => {
-  if (!v) releaseBottomSpace()
+  if (v) return
+  // 不能立刻把 body 的 padding-bottom 去掉：点键盘外部按钮关闭键盘时，
+  // pointerdown 先关键盘，padding 一回缩页面就整体位移，
+  // 紧随其后的 mouseup / click 会落在移动后的位置（用户觉得"按钮点了没反应"）。
+  // 推迟到本次点击的事件序列结束再还布局。
+  window.setTimeout(() => {
+    if (!visible.value) releaseBottomSpace()
+  }, 0)
 })
 
 onBeforeUnmount(() => {
@@ -260,6 +274,7 @@ onBeforeUnmount(() => {
       :append-to="appendTo"
       :close-on-click-outside="closeOnClickOutside"
       :uuid-mode="uuidMode"
+      :uuid-group="uuidGroup"
       :associations="associations"
       :exclusive="exclusive"
       :draggable="draggable"

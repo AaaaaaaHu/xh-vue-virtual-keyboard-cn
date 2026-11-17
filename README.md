@@ -86,6 +86,7 @@ const amount = ref('')
 | `allowPanelSwitch` | `boolean` | `false`  | 允许数字键盘切换到其它面板。默认 `false`：`panel="digits"` 时锁死为纯数字键盘 |
 | `disableSystemKeyboard` | `boolean` | `true` | 是否禁用系统键盘（软键盘 / 物理键盘直输），`false` 时原生输入会同步回 `v-model`      |
 | `uuidMode`         | `boolean` | `false`  | UUID 快捷输入：十六进制面板 + 自动补 `-`，见[UUID 快捷输入](#uuid-快捷输入)        |
+| `uuidGroup`        | `number`  | `0`      | 分组段长 1~5（每 N 位补 `-`），`0` = 标准 UUID 8-4-4-4-12                  |
 
 ### 会自动把输入框让到键盘上方
 
@@ -168,6 +169,7 @@ app.use(VueVirtualKeyboard, {
 | `appendTo`        | `string \| HTMLElement`                           | `'body'`    | fixed 定位时的挂载容器，用于把键盘挂进层级更高的浮层容器                    |
 | `closeOnClickOutside` | `boolean`                                     | `true`      | 点击键盘外部收起键盘；输入框与 `data-vk-anchor` 元素不算外部                            |
 | `uuidMode`        | `boolean`                                         | `false`     | UUID 快捷输入：固定十六进制面板、自动补 `-`、只收 `0-9a-f`                             |
+| `uuidGroup`       | `number`                                          | `0`         | 分组段长 1~5（每 N 位补一个 `-`），0 = 标准 UUID 8-4-4-4-12                           |
 
 ## XHVirtualKeyboard 事件
 
@@ -261,11 +263,36 @@ letters  ──123──▶  numbers  ──#+=──▶  symbols
 | 只收合法字符 | 面板上没有别的键，拼音和大小写都不介入，输不出非法内容 |
 | 退格友好 | 末尾是自动补的 `-` 时连前一位一起删，不会出现"删了又被补回来"的假死 |
 
-最长 36 位（32 位十六进制 + 4 个连字符），满了之后再点不追加。示例输出：
+最长 32 位十六进制，满了之后再点不追加。示例输出：
 
 ```
 01234567-89ab-cdef-0000-000000000000
 ```
+
+### 自定义分组
+
+不是 UUID、而是「每几位一段」的编号时，用 `uuid-group` 指定段长（1~5）：
+
+```vue
+<!-- 1-2-3-4 -->
+<XHKeyboardInput v-model="code" uuid-mode :uuid-group="1" />
+
+<!-- 12-34-56 -->
+<XHKeyboardInput v-model="code" uuid-mode :uuid-group="2" />
+
+<!-- 123-456-789 -->
+<XHKeyboardInput v-model="code" uuid-mode :uuid-group="3" />
+```
+
+| `uuid-group` | 输出 |
+| --- | --- |
+| `0`（默认） | `01234567-89ab-cdef-…`（标准 UUID 8-4-4-4-12） |
+| `1` | `1-2-3-4-5-…` |
+| `2` | `12-34-56-…` |
+| `3` | `123-456-789-…` |
+| `4` / `5` | `1234-5678-…` / `12345-67890-…` |
+
+运行中切换 `uuid-group`，已输入的内容会按新规则重新分段，不用清空重输。
 
 裸组件对应 `:uuid-mode="true"`。开启后 `panel` / `lock-panel` 不再起作用——面板被固定为十六进制。
 

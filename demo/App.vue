@@ -25,8 +25,9 @@ const amount = ref('')
 const nickname = ref('')
 /** 未禁用系统键盘的输入框：可以用物理键盘 / 原生输入法直接打字 */
 const note = ref('')
-/** UUID 快捷输入演示 */
+/** UUID 快捷输入演示：0 = 标准 8-4-4-4-12，1~5 = 每 N 位一组 */
 const uuid = ref('')
+const uuidGroup = ref(0)
 
 const placeholder = computed(() =>
   panel.value === 'digits' ? '点击输入金额' : '点击这里，用虚拟键盘输入'
@@ -221,16 +222,33 @@ function scopedInput() {
 
     <section class="card card--gap">
       <label class="card__label">
-        UUID 快捷输入（<code>uuid-mode</code>：十六进制一屏点完，自动补 <code>-</code>，最长 36 位）
+        UUID 快捷输入（<code>uuid-mode</code> + <code>uuid-group</code>：十六进制一屏点完，按分组自动补 <code>-</code>）
       </label>
+      <div class="ops__group" style="margin-top: 0.5rem">
+        <button
+          v-for="g in [0, 1, 2, 3, 4, 5]"
+          :key="g"
+          class="chip"
+          :class="{ 'is-on': uuidGroup === g }"
+          @click="uuidGroup = g"
+        >
+          {{ g === 0 ? '标准 8-4-4-4-12' : `每 ${g} 位一组` }}
+        </button>
+      </div>
       <XHKeyboardInput
         v-model="uuid"
         uuid-mode
-        placeholder="点这里，一路点 0-9 / a-f，到第 8 位自动补 -"
+        :uuid-group="uuidGroup"
+        :placeholder="
+          uuidGroup
+            ? `点这里，一路点 0-9 / a-f，每 ${uuidGroup} 位自动补 -`
+            : '点这里，一路点 0-9 / a-f，到第 8 位自动补 -'
+        "
         style="margin-top: 0.5rem"
       />
       <div class="meta">
-        <span>UUID：{{ uuid || '（空）' }}</span>
+        <span>分组：{{ uuidGroup ? `每 ${uuidGroup} 位` : '标准 8-4-4-4-12' }}</span>
+        <span>结果：{{ uuid || '（空）' }}</span>
       </div>
     </section>
 

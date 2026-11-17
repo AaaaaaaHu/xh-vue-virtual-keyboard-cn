@@ -114,6 +114,12 @@ const props = withDefaults(
      * 退格遇到自动补的 `-` 会连前一位一起删掉。适合设备序列号 / 案卷号这类长编号录入。
      */
     uuidMode?: boolean
+    /**
+     * 自定义分组长度（1~5），每 N 个字符补一个 `-`：
+     * 1 → `1-2-3-4`，2 → `12-34-56`，3 → `123-456-789`，5 → `12345-67890`。
+     * 不传或 0 时用标准 UUID 的 8-4-4-4-12。仅在 `uuidMode` 下生效。
+     */
+    uuidGroup?: number
   }>(),
   {
     modelValue: '',
@@ -139,7 +145,8 @@ const props = withDefaults(
     persistLearn: false,
     lockPanel: false,
     closeOnClickOutside: true,
-    uuidMode: false
+    uuidMode: false,
+    uuidGroup: 0
   }
 )
 
@@ -291,21 +298,49 @@ const UUID_HEX_RE = /^[0-9a-f]$/i
 /** 分组边界 8-4-4-4-12：在这些位数前面插入连字符 */
 const UUID_DASH_AT = [8, 12, 16, 20]
 
+/** 用户自定义的等长分组（1~5 位一组），0 表示用标准 UUID 的 8-4-4-4-12 */
+function groupSize(): number {
+  const g = Math.round(props.uuidGroup || 0)
+  return g >= 1 && g <= 5 ? g : 0
+}
+
 /**
- * 按 8-4-4-4-12 重排连字符。
+ * 重排连字符。
  * 必须每次从纯 hex 重建（而不是"到第 8 位才补一个"）：
  * 否则用户输到第 9 位时，前面已经补好的 `-` 会被清掉。
+ *
+ * uuidGroup 为 1~5 时按等长分组（1 → 1-2-3，3 → 123-456-789），
+ * 为 0 时按标准 UUID 的 8-4-4-4-12。
  */
 function formatUuid(hex: string) {
+  const g = groupSize()
   let out = ''
+
+  if (g) {
+    for (let i = 0; i < hex.length; i++) {
+      if (i > 0 && i % g === 0) out += '-'
+      out += hex[i]
+    }
+    // 正好停在段末时补上分隔符，让用户看得出该换段了
+    if (hex.length > 0 && hex.length < UUID_HEX_LEN && hex.length % g === 0) out += '-'
+    return out
+  }
+
   for (let i = 0; i < hex.length; i++) {
     if (UUID_DASH_AT.includes(i)) out += '-'
     out += hex[i]
   }
-  // 正好停在段末时把分隔符补上，让用户看得出该换段了
   if (hex.length < UUID_HEX_LEN && UUID_DASH_AT.includes(hex.length)) out += '-'
   return out
 }
+
+// 切换分组长度（或中途打开 uuidMode）时，把已有内容按新规则重排，
+// 否则会残留旧的分隔符位置，看起来像"设置没生效"
+watch([() => props.uuidMode, () => props.uuidGroup], () => {
+  if (!props.uuidMode) return
+  const hex = text.value.replace(/-/g, '')
+  if (hex) text.value = formatUuid(hex)
+})
 
 /**
  * 追加一个十六进制字符并自动补 `-`。
@@ -514,7 +549,12 @@ function close() {
 }
 
 /**
- * 点键盘外部收起键盘（capture 阶段监听：业务代码 stopPropagation 也拦不住）。
+ * 点键盘外部收起键盘（capture 阶段监听 click：业务代码 stopPropagation 也拦不住）。
+ *
+ * 为什么用 click 而不是 pointerdown：
+ * 关键是盘会在本次交互中改变布局（body 的 padding-bottom 回缩），一旦在 pointerdown 阶段
+ * 关闭，页面当场位移、滚动锚点也会挪，紧随其后的 mouseup / click 就落到别的元素上，
+ * 用户会觉得"点那个按钮没反应"。click 阶段目标已经确定，之后怎么变都不会影响派发。
  *
  * 三类"不算外部"的情况：
  * - 键盘自身内部（含 teleport 后的候选栏、设置卡片）
@@ -525,7 +565,7 @@ function close() {
  * 设置 / 调整尺寸状态先"退一层"：只退出该状态，键盘留着，
  * 否则用户想关面板却把整个键盘一起收掉，还得重新点输入框。
  */
-function onDocPointerDown(e: PointerEvent) {
+function onDocClick(e: MouseEvent) {
   if (!innerVisible.value) return
   const root = rootEl.value
   if (!root) return
@@ -1086,12 +1126,12 @@ onMounted(() => {
   loadSettings()
   window.addEventListener('resize', onWindowResize, { passive: true })
   // capture：业务代码在冒泡阶段 stopPropagation 也不会漏掉这次点击
-  document.addEventListener('pointerdown', onDocPointerDown, true)
+  document.addEventListener('click', onDocClick, true)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', onWindowResize)
-  document.removeEventListener('pointerdown', onDocPointerDown, true)
+  document.removeEventListener('click', onDocClick, true)
   window.removeEventListener('pointermove', onDragMove)
   window.removeEventListener('pointerup', onDragEnd)
   window.removeEventListener('pointercancel', onDragEnd)
