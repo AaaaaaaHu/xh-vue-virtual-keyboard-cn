@@ -241,8 +241,8 @@ function scopedInput() {
         :uuid-group="uuidGroup"
         :placeholder="
           uuidGroup
-            ? `点这里，一路点 0-9 / a-f，每 ${uuidGroup} 位自动补 -`
-            : '点这里，一路点 0-9 / a-f，到第 8 位自动补 -'
+            ? `点这里，一路点 0-9 / a-z，每 ${uuidGroup} 位自动补 -`
+            : '点这里，一路点 0-9 / a-z，到第 8 位自动补 -'
         "
         style="margin-top: 0.5rem"
       />

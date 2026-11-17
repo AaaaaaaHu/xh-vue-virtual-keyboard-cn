@@ -16,8 +16,8 @@ import {
 } from '../core/learning'
 import {
   DIGITS_PANEL_LOCKED,
-  HEX_PANEL_LOCKED,
   PANELS,
+  UUID_PANEL,
   type KeyDef,
   type KeyboardPanel
 } from '../core/layouts'
@@ -181,8 +181,8 @@ const currentLang = ref<LangName>(props.lang)
 const shift = ref(false)
 
 const panelDef = computed<KeyboardPanel>(() => {
-  // UUID 模式只有十六进制面板：没有切换键，也就没有"切走再切回来"的误操作
-  if (props.uuidMode) return HEX_PANEL_LOCKED
+  // UUID 模式用专用面板：数字 + 全字母 + ⇧，没有切换键，也就没有"切走再切回来"的误操作
+  if (props.uuidMode) return UUID_PANEL
   const name = currentPanel.value
   // 锁定面板时用不带切换键的版本，保证用户无法切走
   if (props.lockPanel && name === 'digits') return DIGITS_PANEL_LOCKED
@@ -214,6 +214,8 @@ const composeHint = computed(() => {
       return '数字键盘'
     case 'hex':
       return '十六进制 · 自动分段'
+    case 'uuid':
+      return '编号输入 · 自动分段'
     default:
       return isZh.value ? '拼音输入' : 'English'
   }
@@ -293,8 +295,9 @@ function toChars(s: string): string[] {
 }
 
 /* ------------------------------------------------------------ UUID 快捷输入 */
-const UUID_HEX_LEN = 32
-const UUID_HEX_RE = /^[0-9a-f]$/i
+const UUID_MAX_LEN = 32
+/** 数字与大小写字母都收（编号里常带全字母），大小写按 ⇧ 状态保留 */
+const UUID_CHAR_RE = /^[0-9a-zA-Z]$/
 /** 分组边界 8-4-4-4-12：在这些位数前面插入连字符 */
 const UUID_DASH_AT = [8, 12, 16, 20]
 
@@ -322,7 +325,7 @@ function formatUuid(hex: string) {
       out += hex[i]
     }
     // 正好停在段末时补上分隔符，让用户看得出该换段了
-    if (hex.length > 0 && hex.length < UUID_HEX_LEN && hex.length % g === 0) out += '-'
+    if (hex.length > 0 && hex.length < UUID_MAX_LEN && hex.length % g === 0) out += '-'
     return out
   }
 
@@ -330,7 +333,7 @@ function formatUuid(hex: string) {
     if (UUID_DASH_AT.includes(i)) out += '-'
     out += hex[i]
   }
-  if (hex.length < UUID_HEX_LEN && UUID_DASH_AT.includes(hex.length)) out += '-'
+  if (hex.length < UUID_MAX_LEN && UUID_DASH_AT.includes(hex.length)) out += '-'
   return out
 }
 
@@ -343,14 +346,14 @@ watch([() => props.uuidMode, () => props.uuidGroup], () => {
 })
 
 /**
- * 追加一个十六进制字符并自动补 `-`。
- * 用户只管一路点 0-9 / a-f，分隔符不用自己按，也不会漏。
+ * 追加一个字符并自动补 `-`。
+ * 用户只管一路点 0-9 / a-z，分隔符不用自己按，也不会漏；大小写按 ⇧ 状态原样保留。
  */
 function pushUuidChar(chr: string) {
-  if (!UUID_HEX_RE.test(chr)) return
-  const hex = text.value.replace(/-/g, '').toLowerCase()
-  if (hex.length >= UUID_HEX_LEN) return
-  text.value = formatUuid(hex + chr.toLowerCase())
+  if (!UUID_CHAR_RE.test(chr)) return
+  const body = text.value.replace(/-/g, '')
+  if (body.length >= UUID_MAX_LEN) return
+  text.value = formatUuid(body + chr)
 }
 
 function commitText(s: string) {
@@ -601,10 +604,11 @@ function handleKey(key: KeyDef) {
 
   if (code.startsWith('char:')) {
     const raw = key.label
-    // UUID 模式：不做拼音、不管 Shift，只认 0-9a-f 并自动补分隔符
+    // UUID 模式：不走拼音，只收数字与字母；字母按 ⇧ 状态决定大小写
     if (props.uuidMode) {
-      pushUuidChar(raw)
-      emit('key', { key: code, text: raw })
+      const out = /^[a-z]$/.test(raw) && shift.value ? raw.toUpperCase() : raw
+      pushUuidChar(out)
+      emit('key', { key: code, text: out })
       return
     }
     const shifted = key.shiftLabel ?? raw
@@ -1286,7 +1290,7 @@ defineExpose({
                 {{ c.text }}
               </button>
               <span v-if="!candidates.length" class="vk-cands__empty">
-                {{ uuidMode ? '点 0-9 / a-f，自动分段' : '继续输入…' }}
+                {{ uuidMode ? '点 0-9 / a-z，自动分段' : '继续输入…' }}
               </span>
             </template>
             <template v-else-if="assocList.length">

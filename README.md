@@ -85,7 +85,7 @@ const amount = ref('')
 | `persistLearn`     | `boolean` | `false`  | 学习数据持久化到 localStorage                               |
 | `allowPanelSwitch` | `boolean` | `false`  | 允许数字键盘切换到其它面板。默认 `false`：`panel="digits"` 时锁死为纯数字键盘 |
 | `disableSystemKeyboard` | `boolean` | `true` | 是否禁用系统键盘（软键盘 / 物理键盘直输），`false` 时原生输入会同步回 `v-model`      |
-| `uuidMode`         | `boolean` | `false`  | UUID 快捷输入：十六进制面板 + 自动补 `-`，见[UUID 快捷输入](#uuid-快捷输入)        |
+| `uuidMode`         | `boolean` | `false`  | UUID 快捷输入：专用面板（0-9 + 全字母 + ⇧）+ 自动补 `-`，见[UUID 快捷输入](#uuid-快捷输入)        |
 | `uuidGroup`        | `number`  | `0`      | 分组段长 1~5（每 N 位补 `-`），`0` = 标准 UUID 8-4-4-4-12                  |
 
 ### 会自动把输入框让到键盘上方
@@ -168,7 +168,7 @@ app.use(VueVirtualKeyboard, {
 | `zIndex`          | `number`                                          | `999999`    | 键盘层级，被页面浮层压住时调大                                   |
 | `appendTo`        | `string \| HTMLElement`                           | `'body'`    | fixed 定位时的挂载容器，用于把键盘挂进层级更高的浮层容器                    |
 | `closeOnClickOutside` | `boolean`                                     | `true`      | 点击键盘外部收起键盘；输入框与 `data-vk-anchor` 元素不算外部                            |
-| `uuidMode`        | `boolean`                                         | `false`     | UUID 快捷输入：固定十六进制面板、自动补 `-`、只收 `0-9a-f`                             |
+| `uuidMode`        | `boolean`                                         | `false`     | UUID 快捷输入：专用面板、自动补 `-`、只收数字与字母                             |
 | `uuidGroup`       | `number`                                          | `0`         | 分组段长 1~5（每 N 位补一个 `-`），0 = 标准 UUID 8-4-4-4-12                           |
 
 ## XHVirtualKeyboard 事件
@@ -258,12 +258,12 @@ letters  ──123──▶  numbers  ──#+=──▶  symbols
 
 | 行为 | 说明 |
 | --- | --- |
-| 十六进制面板 | 只显示 `0-9` `a-f` + `⌫` `清空` `完成`，16 个字符一屏点完，不用在字母页和数字页之间来回切 |
+| 专用面板 | `0-9` 一行 + 全字母 `a-z` + `⇧` + `⌫` `清空` `完成`，没有面板切换键，数字和字母不用来回切 |
 | 自动分段 | 按 `8-4-4-4-12` 自动补 `-`，输入到第 8 位就出现第一个连字符，用户不用自己按 |
-| 只收合法字符 | 面板上没有别的键，拼音和大小写都不介入，输不出非法内容 |
+| 字符集 | 只收数字与字母（`0-9` `a-zA-Z`），拼音不介入；`⇧` 切换大小写，大写状态保持到再点一次 |
 | 退格友好 | 末尾是自动补的 `-` 时连前一位一起删，不会出现"删了又被补回来"的假死 |
 
-最长 32 位十六进制，满了之后再点不追加。示例输出：
+最长 32 位，满了之后再点不追加。示例输出：
 
 ```
 01234567-89ab-cdef-0000-000000000000
