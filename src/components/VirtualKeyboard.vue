@@ -156,9 +156,8 @@ const pinyin = ref('')
 const candidates = ref<Candidate[]>([])
 const currentPanel = ref<PanelName>(props.panel)
 const currentLang = ref<LangName>(props.lang)
+/** 大写态：点一次 ⇧ 打开并保持，再点一次关闭（不再"输一个字母就自动复位"） */
 const shift = ref(false)
-const caps = ref(false)
-let lastCapsAt = 0
 
 const panelDef = computed<KeyboardPanel>(() => {
   const name = currentPanel.value
@@ -441,7 +440,6 @@ function toggleLang() {
   commitComposing()
   currentLang.value = isZh.value ? 'en' : 'zh'
   shift.value = false
-  caps.value = false
   emit('update:lang', currentLang.value)
 }
 
@@ -506,7 +504,7 @@ function handleKey(key: KeyDef) {
     const raw = key.label
     const shifted = key.shiftLabel ?? raw
     const isAsciiLetter = /^[a-z]$/.test(raw)
-    const useUpper = shift.value !== caps.value
+    const useUpper = shift.value
 
     let output: string
     if (isAsciiLetter) {
@@ -524,7 +522,8 @@ function handleKey(key: KeyDef) {
       commitText(output)
     }
 
-    if (shift.value) shift.value = false
+    // 刻意不在输入后自动复位 Shift：大写态保持到用户再点一次 ⇧ 才取消，
+    // 连续输多个大写字母（编号、缩写、英文姓名）不用每次重新按。
     emit('key', { key: code, text: output })
     return
   }
@@ -547,23 +546,11 @@ function handleKey(key: KeyDef) {
       emit('close')
       break
     case 'Shift':
+    case 'Caps':
+      // 纯开关：点一次打开并保持，再点一次才关闭。
+      // 不做"双击锁定"——那会让用户快速点两下取消时反而被锁住。
       shift.value = !shift.value
       break
-    case 'Caps': {
-      // 单击：临时大写（等同 Shift）；双击：锁定大写
-      const now = Date.now()
-      if (now - lastCapsAt < 350) {
-        caps.value = !caps.value
-        shift.value = false
-      } else if (caps.value) {
-        caps.value = false
-        shift.value = false
-      } else {
-        shift.value = !shift.value
-      }
-      lastCapsAt = now
-      break
-    }
     case 'Language':
       toggleLang()
       break
@@ -595,13 +582,12 @@ function keyLabel(key: KeyDef): string {
   if (!isAsciiLetter) {
     return isZh.value ? (key.shiftLabel ?? key.label) : key.label
   }
-  const useUpper = shift.value !== caps.value
-  return useUpper ? key.label.toUpperCase() : key.label
+  return shift.value ? key.label.toUpperCase() : key.label
 }
 
 function isActive(key: KeyDef): boolean {
   return (
-    ((key.code === 'Caps') && (caps.value || shift.value)) ||
+    ((key.code === 'Caps' || key.code === 'Shift') && shift.value) ||
     (key.code === 'Language' && !isZh.value)
   )
 }
